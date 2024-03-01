@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	main "github.com/nsmeds/weather-widget"
+	main "github.com/nsmeds/weather-widget/cmd"
 )
 
 func TestRun(t *testing.T) {

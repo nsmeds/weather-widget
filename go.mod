@@ -1,3 +1,3 @@
-module weather-widget
+module github.com/nsmeds/weather-widget
 
 go 1.22.0
