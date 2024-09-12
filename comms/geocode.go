@@ -24,11 +24,11 @@ const geoCodingHost = "https://api.openweathermap.org/geo/1.0/direct"
 
 type geoCodeAPIResponseItem struct {
 	// TODO can you unmarshal without struct tags as long as name matches json name? try it
-	name    string `json:"name"`
-	lat     string `json:"lat"`
-	lon     string `json:"long"`
-	country string `json:"country"`
-	state   string `json:"state"`
+	Name    string  `json:"name"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
+	Country string  `json:"country"`
+	State   string  `json:"state"`
 }
 
 type geoCodeAPIResponse []geoCodeAPIResponseItem
@@ -44,11 +44,10 @@ var client = &http.Client{
 }
 
 func GetLocation(query string, apiKey string) (Location, error) {
-	// handle spaces
-	spaceToComma := strings.Join(strings.Split(query, " "), ",")
-	// TODO possibly convert two-letter state code to three-letter, because API only handles the latter
-	fmt.Println("spaceToComma", spaceToComma)
 	var l Location
+	// TODO possibly convert two-letter state code to three-letter, because API only handles the latter
+	// handle spaces - API needs comma delimiter
+	spaceToComma := strings.Join(strings.Split(query, " "), ",")
 	req, err := http.NewRequest(http.MethodGet, geoCodingHost, nil)
 	if err != nil {
 		fmt.Println(err)
@@ -77,6 +76,6 @@ func GetLocation(query string, apiKey string) (Location, error) {
 		fmt.Println(err)
 		return l, err
 	}
-	fmt.Printf("%v", apiResponse)
+	fmt.Printf("unmarshaled: %v", apiResponse)
 	return l, nil
 }
