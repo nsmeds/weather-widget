@@ -23,12 +23,14 @@ func Run(ctx context.Context, cancel context.CancelFunc, args []string, stdout, 
 	flags := flag.NewFlagSet("weather-widget", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	host := flags.String("host", defaultHost, "hostname for server")
+	fmt.Println(os.Getenv("OPEN_WEATHER_API_KEY"))
+	openWeatherAPIKey := flags.String("api-key", os.Getenv("OPEN_WEATHER_API_KEY"), "open weather api key")
 	port := flags.Int("port", defaultPort, "port for server")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
-
-	srv := server.New(*host, *port)
+	fmt.Println("api key", *openWeatherAPIKey)
+	srv := server.New(*host, *port, *openWeatherAPIKey)
 	go func() {
 		fmt.Println("starting server ...")
 		if err := srv.ListenAndServe(); err != nil {
