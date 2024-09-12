@@ -23,12 +23,11 @@ import (
 const geoCodingHost = "https://api.openweathermap.org/geo/1.0/direct"
 
 type geoCodeAPIResponseItem struct {
-	// TODO can you unmarshal without struct tags as long as name matches json name? try it
-	Name    string `json:"name"`
-	Lat     float64 `json:"lat"`
-	Lon     float64 `json:"lon"`
-	Country string `json:"country"`
-	State   string `json:"state"`
+	Name    string
+	Lat     float64
+	Lon     float64
+	Country string
+	State   string
 }
 
 type geoCodeAPIResponse []geoCodeAPIResponseItem
@@ -43,6 +42,8 @@ var client = &http.Client{
 	Timeout: time.Second * 5,
 }
 
+// TODO return an array of Locations (or apiResponses - these could be the same)
+// then use that to call the weather API
 func GetLocation(query string, apiKey string) (Location, error) {
 	var l Location
 	// TODO possibly convert two-letter state code to three-letter, because API only handles the latter
@@ -50,32 +51,28 @@ func GetLocation(query string, apiKey string) (Location, error) {
 	spaceToComma := strings.Join(strings.Split(query, " "), ",")
 	req, err := http.NewRequest(http.MethodGet, geoCodingHost, nil)
 	if err != nil {
-		fmt.Println(err)
 		return l, err
 	}
 	q := url.Values{}
 	q.Add("appid", apiKey)
 	q.Add("q", spaceToComma)
 	req.URL.RawQuery = q.Encode()
-	fmt.Println(req.URL)
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
 		return l, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return l, fmt.Errorf("status code not ok: %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
 		return l, err
 	}
 	var apiResponse geoCodeAPIResponse
-	fmt.Println(resp.Status)
-	fmt.Println("body", string(body))
 	if err = json.Unmarshal(body, &apiResponse); err != nil {
-		fmt.Println(err)
 		return l, err
 	}
-	fmt.Printf("unmarshaled: %v", apiResponse)
+	fmt.Printf("unmarshaled: %v\n", apiResponse)
 	return l, nil
 }

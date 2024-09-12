@@ -57,13 +57,13 @@ func (s *Server) handleWeatherRequest() http.HandlerFunc {
 			w.Write([]byte(`{"message": "internal system error"}`))
 			return
 		}
-		// TODO comms
 		res, err := comms.GetLocation(string(body), s.apiKey)
 		if err != nil {
 			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		fmt.Printf("res: %#v", res)
 		locationResponse, err := json.Marshal(res)
 		if err != nil {
 			fmt.Println(err)
