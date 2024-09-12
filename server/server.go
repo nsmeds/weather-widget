@@ -57,7 +57,7 @@ func (s *Server) handleWeatherRequest() http.HandlerFunc {
 			w.Write([]byte(`{"message": "internal system error"}`))
 			return
 		}
-		res, err := comms.GetLocation(string(body), s.apiKey)
+		res, err := comms.GetLocations(string(body), s.apiKey)
 		if err != nil {
 			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
@@ -70,10 +70,15 @@ func (s *Server) handleWeatherRequest() http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		if len(locationResponse) == 1 {
+			// use that locationResponse's lat/long to call weather API
+			// probably either NWS API https://www.ncdc.noaa.gov/cdo-web/webservices/v2
+			// or https://azure.microsoft.com/en-us/pricing/details/azure-maps/#pricing
+		}
+		// else return options for user to choose from
+
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(locationResponse))
 	}
 }
-
-

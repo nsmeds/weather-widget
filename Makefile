@@ -9,7 +9,7 @@ build:
 	docker buildx build --platform=linux/amd64 \
 		-f Dockerfile \
 		-t weather-widget \
-		../../
+		.
 
 lint:
 	staticcheck ./...

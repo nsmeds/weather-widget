@@ -42,10 +42,9 @@ var client = &http.Client{
 	Timeout: time.Second * 5,
 }
 
-// TODO return an array of Locations (or apiResponses - these could be the same)
-// then use that to call the weather API
-func GetLocation(query string, apiKey string) (Location, error) {
-	var l Location
+// GetLocations based on input string
+func GetLocations(query string, apiKey string) (geoCodeAPIResponse, error) {
+	var l geoCodeAPIResponse
 	// TODO possibly convert two-letter state code to three-letter, because API only handles the latter
 	// handle spaces - API needs comma delimiter
 	spaceToComma := strings.Join(strings.Split(query, " "), ",")
@@ -69,10 +68,9 @@ func GetLocation(query string, apiKey string) (Location, error) {
 	if err != nil {
 		return l, err
 	}
-	var apiResponse geoCodeAPIResponse
-	if err = json.Unmarshal(body, &apiResponse); err != nil {
+	if err = json.Unmarshal(body, &l); err != nil {
 		return l, err
 	}
-	fmt.Printf("unmarshaled: %v\n", apiResponse)
+	fmt.Printf("unmarshaled: %v\n", l)
 	return l, nil
 }
