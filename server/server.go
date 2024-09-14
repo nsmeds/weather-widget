@@ -12,14 +12,16 @@ import (
 
 type Server struct {
 	*http.Server
-	apiKey string
+	geoCodeApiKey string
+	weatherApiKey string
 	// TODO logger
 	// TODO metrics
 }
 
-func New(host string, port int, apiKey string) *Server {
+func New(host string, port int, geocodeApiKey, weatherApiKey string) *Server {
 	s := Server{
-		apiKey: apiKey,
+		geoCodeApiKey: geocodeApiKey,
+		weatherApiKey: weatherApiKey,
 	}
 	httpServer := http.Server{
 		Addr:    fmt.Sprintf("%s:%d", host, port),
@@ -57,7 +59,7 @@ func (s *Server) handleWeatherRequest() http.HandlerFunc {
 			w.Write([]byte(`{"message": "internal system error"}`))
 			return
 		}
-		res, err := comms.GetLocations(string(body), s.apiKey)
+		res, err := comms.GetLocations(string(body), s.geoCodeApiKey)
 		if err != nil {
 			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
@@ -70,7 +72,14 @@ func (s *Server) handleWeatherRequest() http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		if len(locationResponse) == 1 {
+		if len(res) == 1 {
+			something, err := comms.GetStation(res[0], s.weatherApiKey)
+			if err != nil {
+				fmt.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			fmt.Println("something: ", something)
 			// use that locationResponse's lat/long to call weather API
 			// probably either NWS API https://www.ncdc.noaa.gov/cdo-web/webservices/v2
 			// or https://azure.microsoft.com/en-us/pricing/details/azure-maps/#pricing

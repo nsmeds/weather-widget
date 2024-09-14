@@ -71,6 +71,6 @@ func GetLocations(query string, apiKey string) (geoCodeAPIResponse, error) {
 	if err = json.Unmarshal(body, &l); err != nil {
 		return l, err
 	}
-	fmt.Printf("unmarshaled: %v\n", l)
+	fmt.Printf("\nunmarshaled: %v\n", l)
 	return l, nil
 }
