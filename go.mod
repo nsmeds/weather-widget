@@ -1,3 +1,3 @@
 module github.com/nsmeds/weather-widget
 
-go 1.22.7
+go 1.26.2
