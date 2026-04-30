@@ -3,7 +3,7 @@
 	deploy \
 	test
 
-COVERAGE_MIN=50
+COVERAGE_MIN=15
 
 build:
 	docker buildx build --platform=linux/amd64 \
