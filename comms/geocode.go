@@ -22,7 +22,8 @@ import (
 
 const geoCodingHost = "https://api.openweathermap.org/geo/1.0/direct"
 
-type geoCodeAPIResponseItem struct {
+// GeoCodeAPIResponseItem represents a single geocoding API response
+type GeoCodeAPIResponseItem struct {
 	Name    string
 	Lat     float64
 	Lon     float64
@@ -30,7 +31,7 @@ type geoCodeAPIResponseItem struct {
 	State   string
 }
 
-type geoCodeAPIResponse []geoCodeAPIResponseItem
+type geoCodeAPIResponse []GeoCodeAPIResponseItem
 
 type Location struct {
 	Lat  string `json:"lat"`
@@ -38,12 +39,22 @@ type Location struct {
 	Name string `json:"name"`
 }
 
-var client = &http.Client{
+// HTTPClient interface allows for dependency injection of HTTP clients
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+var defaultClient = &http.Client{
 	Timeout: time.Second * 5,
 }
 
-// GetLocations based on input string
-func GetLocations(query string, apiKey string) (geoCodeAPIResponse, error) {
+// GetLocations retrieves locations for the given query using the default HTTP client
+func GetLocations(query string, apiKey string) ([]GeoCodeAPIResponseItem, error) {
+	return GetLocationsWithClient(defaultClient, query, apiKey)
+}
+
+// GetLocationsWithClient retrieves locations for the given query using the provided HTTP client
+func GetLocationsWithClient(client HTTPClient, query string, apiKey string) ([]GeoCodeAPIResponseItem, error) {
 	var l geoCodeAPIResponse
 	// TODO possibly convert two-letter state code to three-letter, because API only handles the latter
 	// handle spaces - API needs comma delimiter

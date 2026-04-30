@@ -10,11 +10,18 @@ import (
 
 const weatherApiHost = "https://www.ncei.noaa.gov/cdo-web/api/v2/"
 
+// LocationInfo represents weather station information
 type LocationInfo struct {
 	Id string
 }
 
-func GetStation(location geoCodeAPIResponseItem, apiToken string) (LocationInfo, error) {
+// GetStation retrieves weather station information using the default HTTP client
+func GetStation(location GeoCodeAPIResponseItem, apiToken string) (LocationInfo, error) {
+	return GetStationWithClient(defaultClient, location, apiToken)
+}
+
+// GetStationWithClient retrieves weather station information using the provided HTTP client
+func GetStationWithClient(client HTTPClient, location GeoCodeAPIResponseItem, apiToken string) (LocationInfo, error) {
 	var l LocationInfo
 	req, err := http.NewRequest(http.MethodGet, weatherApiHost+"stations", nil)
 	if err != nil {
