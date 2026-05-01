@@ -15,13 +15,8 @@ type LocationInfo struct {
 	Id string
 }
 
-// GetStation retrieves weather station information using the default HTTP client
-func GetStation(location GeoCodeAPIResponseItem, apiToken string) (LocationInfo, error) {
-	return GetStationWithClient(defaultClient, location, apiToken)
-}
-
-// GetStationWithClient retrieves weather station information using the provided HTTP client
-func GetStationWithClient(client HTTPClient, location GeoCodeAPIResponseItem, apiToken string) (LocationInfo, error) {
+// GetStation retrieves weather station information for the given location
+func (c *CommsClient) GetStation(location GeoCodeAPIResponseItem, apiToken string) (LocationInfo, error) {
 	var l LocationInfo
 	req, err := http.NewRequest(http.MethodGet, weatherApiHost+"stations", nil)
 	if err != nil {
@@ -32,7 +27,7 @@ func GetStationWithClient(client HTTPClient, location GeoCodeAPIResponseItem, ap
 	q.Add("extent", fmt.Sprintf("%v,%v", location.Lat, location.Lon))
 	req.URL.RawQuery = q.Encode()
 	fmt.Println("req url", req.URL)
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return l, err
 	}

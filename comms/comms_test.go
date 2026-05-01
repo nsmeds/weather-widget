@@ -26,9 +26,9 @@ func TestGetLocationsSuccess(t *testing.T) {
 				StatusCode: http.StatusOK,
 				Body: io.NopCloser(strings.NewReader(`[
 					{
-						"name": "New York",
-						"lat": 40.7128,
-						"lon": -74.0060,
+						"name": "New Orleans",
+						"lat": 29.951065,
+						"lon": -90.071533,
 						"country": "US",
 						"state": "NY"
 					}
@@ -37,15 +37,16 @@ func TestGetLocationsSuccess(t *testing.T) {
 		},
 	}
 
-	locations, err := comms.GetLocationsWithClient(mockHTTPClient, "New York", "test-key")
+	client := comms.NewClient(mockHTTPClient)
+	locations, err := client.GetLocations("New Orleans", "test-key")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if len(locations) == 0 {
 		t.Error("expected locations, got empty response")
 	}
-	if len(locations) > 0 && locations[0].Name != "New York" {
-		t.Errorf("expected name 'New York', got %q", locations[0].Name)
+	if len(locations) > 0 && locations[0].Name != "New Orleans" {
+		t.Errorf("expected name 'New Orleans', got %q", locations[0].Name)
 	}
 }
 
@@ -60,7 +61,8 @@ func TestGetLocationsAPIError(t *testing.T) {
 		},
 	}
 
-	locations, err := comms.GetLocationsWithClient(mockHTTPClient, "New York", "invalid-key")
+	client := comms.NewClient(mockHTTPClient)
+	locations, err := client.GetLocations("New Orleans", "invalid-key")
 	if err == nil {
 		t.Error("expected error for unauthorized response, got nil")
 	}
@@ -77,7 +79,8 @@ func TestGetLocationsNetworkError(t *testing.T) {
 		},
 	}
 
-	locations, err := comms.GetLocationsWithClient(mockHTTPClient, "New York", "test-key")
+	client := comms.NewClient(mockHTTPClient)
+	locations, err := client.GetLocations("New Orleans", "test-key")
 	if err == nil {
 		t.Error("expected error for network failure, got nil")
 	}
@@ -97,7 +100,8 @@ func TestGetLocationsInvalidJSON(t *testing.T) {
 		},
 	}
 
-	locations, err := comms.GetLocationsWithClient(mockHTTPClient, "New York", "test-key")
+	client := comms.NewClient(mockHTTPClient)
+	locations, err := client.GetLocations("New Orleans", "test-key")
 	if err == nil {
 		t.Error("expected error for invalid JSON, got nil")
 	}
@@ -121,12 +125,13 @@ func TestGetStationSuccess(t *testing.T) {
 	}
 
 	location := comms.GeoCodeAPIResponseItem{
-		Name: "New York",
-		Lat:  40.7128,
-		Lon:  -74.0060,
+		Name: "New Orleans",
+		Lat:  29.951065,
+		Lon:  -90.071533,
 	}
 
-	station, err := comms.GetStationWithClient(mockHTTPClient, location, "test-token")
+	client := comms.NewClient(mockHTTPClient)
+	station, err := client.GetStation(location, "test-token")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -147,12 +152,13 @@ func TestGetStationAPIError(t *testing.T) {
 	}
 
 	location := comms.GeoCodeAPIResponseItem{
-		Name: "New York",
-		Lat:  40.7128,
-		Lon:  -74.0060,
+		Name: "New Orleans",
+		Lat:  29.951065,
+		Lon:  -90.071533,
 	}
 
-	station, err := comms.GetStationWithClient(mockHTTPClient, location, "test-token")
+	client := comms.NewClient(mockHTTPClient)
+	station, err := client.GetStation(location, "test-token")
 	if err == nil {
 		t.Error("expected error for server error, got nil")
 	}
