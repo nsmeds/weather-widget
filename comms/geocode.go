@@ -33,28 +33,36 @@ type GeoCodeAPIResponseItem struct {
 
 type geoCodeAPIResponse []GeoCodeAPIResponseItem
 
-type Location struct {
-	Lat  string `json:"lat"`
-	Lon  string `json:"long"`
-	Name string `json:"name"`
-}
-
 // HTTPClient interface allows for dependency injection of HTTP clients
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-var defaultClient = &http.Client{
+var defaultHTTPClient = &http.Client{
 	Timeout: time.Second * 5,
 }
 
-// GetLocations retrieves locations for the given query using the default HTTP client
-func GetLocations(query string, apiKey string) ([]GeoCodeAPIResponseItem, error) {
-	return GetLocationsWithClient(defaultClient, query, apiKey)
+// CommsClient handles communication with external APIs for weather and location data
+type CommsClient struct {
+	httpClient HTTPClient
 }
 
-// GetLocationsWithClient retrieves locations for the given query using the provided HTTP client
-func GetLocationsWithClient(client HTTPClient, query string, apiKey string) ([]GeoCodeAPIResponseItem, error) {
+// NewClient creates a new CommsClient with the provided HTTP client
+func NewClient(httpClient HTTPClient) *CommsClient {
+	return &CommsClient{
+		httpClient: httpClient,
+	}
+}
+
+// NewClientWithDefaults creates a new CommsClient with default HTTP client settings
+func NewClientWithDefaults() *CommsClient {
+	return &CommsClient{
+		httpClient: defaultHTTPClient,
+	}
+}
+
+// GetLocations retrieves locations for the given query
+func (c *CommsClient) GetLocations(query string, apiKey string) ([]GeoCodeAPIResponseItem, error) {
 	var l geoCodeAPIResponse
 	// TODO possibly convert two-letter state code to three-letter, because API only handles the latter
 	// handle spaces - API needs comma delimiter
@@ -67,7 +75,7 @@ func GetLocationsWithClient(client HTTPClient, query string, apiKey string) ([]G
 	q.Add("appid", apiKey)
 	q.Add("q", spaceToComma)
 	req.URL.RawQuery = q.Encode()
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return l, err
 	}

@@ -12,6 +12,7 @@ import (
 
 type Server struct {
 	*http.Server
+	commsClient   *comms.CommsClient
 	geoCodeApiKey string
 	weatherApiKey string
 	// TODO logger
@@ -20,6 +21,7 @@ type Server struct {
 
 func New(host string, port int, geocodeApiKey, weatherApiKey string) *Server {
 	s := Server{
+		commsClient:   comms.NewClientWithDefaults(),
 		geoCodeApiKey: geocodeApiKey,
 		weatherApiKey: weatherApiKey,
 	}
@@ -59,7 +61,7 @@ func (s *Server) handleWeatherRequest() http.HandlerFunc {
 			w.Write([]byte(`{"message": "internal system error"}`))
 			return
 		}
-		res, err := comms.GetLocations(string(body), s.geoCodeApiKey)
+		res, err := s.commsClient.GetLocations(string(body), s.geoCodeApiKey)
 		if err != nil {
 			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
@@ -73,7 +75,7 @@ func (s *Server) handleWeatherRequest() http.HandlerFunc {
 			return
 		}
 		if len(res) == 1 {
-			something, err := comms.GetStation(res[0], s.weatherApiKey)
+			something, err := s.commsClient.GetStation(res[0], s.weatherApiKey)
 			if err != nil {
 				fmt.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
