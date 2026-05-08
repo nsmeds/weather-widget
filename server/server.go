@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/nsmeds/weather-widget/comms"
@@ -17,6 +18,20 @@ type Server struct {
 	weatherApiKey string
 	// TODO logger
 	// TODO metrics
+}
+
+// WeatherResponse is the unified response returned by the /weather endpoint.
+type WeatherResponse struct {
+	Location locationData         `json:"location"`
+	Current  comms.CurrentConditions `json:"current"`
+	Forecast comms.TodayForecast     `json:"forecast"`
+	Averages comms.ClimateNormals    `json:"averages"`
+}
+
+type locationData struct {
+	Name string  `json:"name"`
+	Lat  float64 `json:"lat"`
+	Lon  float64 `json:"lon"`
 }
 
 func New(host string, port int, geocodeApiKey, weatherApiKey string) *Server {
@@ -39,9 +54,7 @@ func (s *Server) handleDefaultRequest() http.HandlerFunc {
 		processStartedAt := time.Now().Format(time.RFC3339Nano)
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			w.Header().Set("content-type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"message": "internal system error"}`))
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "internal system error"})
 			return
 		}
 		message := fmt.Sprintf("received %v at %s", string(body), processStartedAt)
@@ -54,42 +67,95 @@ func (s *Server) handleDefaultRequest() http.HandlerFunc {
 func (s *Server) handleWeatherRequest() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		body, err := io.ReadAll(r.Body) // TODO some kind of sanitization
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			w.Header().Set("content-type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"message": "internal system error"}`))
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "internal system error"})
 			return
 		}
-		res, err := s.commsClient.GetLocations(string(body), s.geoCodeApiKey)
-		if err != nil {
-			fmt.Println(err)
-			w.WriteHeader(http.StatusBadRequest)
+		query := strings.TrimSpace(string(body))
+		if query == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "location query required"})
 			return
 		}
-		fmt.Printf("res: %#v", res)
-		locationResponse, err := json.Marshal(res)
-		if err != nil {
-			fmt.Println(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if len(res) == 1 {
-			something, err := s.commsClient.GetStation(res[0], s.weatherApiKey)
-			if err != nil {
-				fmt.Println(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			fmt.Println("something: ", something)
-			// use that locationResponse's lat/long to call weather API
-			// probably either NWS API https://www.ncdc.noaa.gov/cdo-web/webservices/v2
-			// or https://azure.microsoft.com/en-us/pricing/details/azure-maps/#pricing
-		}
-		// else return options for user to choose from
 
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(locationResponse))
+		locations, err := s.commsClient.GetLocations(query, s.geoCodeApiKey)
+		if err != nil {
+			fmt.Println(err)
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "location lookup failed"})
+			return
+		}
+		if len(locations) == 0 {
+			writeJSON(w, http.StatusNotFound, map[string]string{"message": "location not found"})
+			return
+		}
+		if len(locations) > 1 {
+			writeJSON(w, http.StatusOK, locations)
+			return
+		}
+
+		loc := locations[0]
+
+		// Fetch CDO station ID for climate normals (best-effort; proceed if unavailable)
+		station, err := s.commsClient.GetStation(loc, s.weatherApiKey)
+		if err != nil {
+			fmt.Println("GetStation:", err)
+		}
+
+		// Fetch NWS grid point metadata to get forecast and observation station URLs
+		points, err := s.commsClient.GetNWSPoints(loc.Lat, loc.Lon)
+		if err != nil {
+			fmt.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to retrieve weather grid data"})
+			return
+		}
+
+		nwsStationID, err := s.commsClient.GetNWSObservationStation(points.ObservationStationsURL)
+		if err != nil {
+			fmt.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to find observation station"})
+			return
+		}
+
+		current, err := s.commsClient.GetCurrentObservation(nwsStationID)
+		if err != nil {
+			fmt.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to retrieve current conditions"})
+			return
+		}
+
+		forecast, err := s.commsClient.GetNWSForecast(points.ForecastURL)
+		if err != nil {
+			fmt.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to retrieve forecast"})
+			return
+		}
+
+		// Climate normals are best-effort; an empty StationInfo produces zero values
+		var normals comms.ClimateNormals
+		if station.Id != "" {
+			normals, err = s.commsClient.GetClimateNormals(station.Id, time.Now(), s.weatherApiKey)
+			if err != nil {
+				fmt.Println("GetClimateNormals:", err)
+			}
+		}
+
+		name := loc.Name
+		if loc.State != "" {
+			name = loc.Name + ", " + loc.State
+		}
+		writeJSON(w, http.StatusOK, WeatherResponse{
+			Location: locationData{Name: name, Lat: loc.Lat, Lon: loc.Lon},
+			Current:  current,
+			Forecast: forecast,
+			Averages: normals,
+		})
+	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		fmt.Println("writeJSON encode error:", err)
 	}
 }

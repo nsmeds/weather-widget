@@ -110,15 +110,17 @@ func TestGetLocationsInvalidJSON(t *testing.T) {
 	}
 }
 
-// TestGetStationSuccess tests GetStation with a successful response
+// TestGetStationSuccess tests GetStation with a successful CDO API response
 func TestGetStationSuccess(t *testing.T) {
 	mockHTTPClient := &mockClient{
 		doFunc: func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body: io.NopCloser(strings.NewReader(`{
-					"Id": "STATION123",
-					"results": []
+					"metadata": {"resultset": {"offset": 1, "count": 1, "limit": 1}},
+					"results": [
+						{"id": "GHCND:USW00012345", "name": "NEW ORLEANS INTL AP, LA US"}
+					]
 				}`)),
 			}, nil
 		},
@@ -135,8 +137,32 @@ func TestGetStationSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if station.Id != "STATION123" {
-		t.Errorf("expected station ID 'STATION123', got %q", station.Id)
+	if station.Id != "GHCND:USW00012345" {
+		t.Errorf("expected station ID 'GHCND:USW00012345', got %q", station.Id)
+	}
+}
+
+// TestGetStationNoResults tests GetStation when no stations are found
+func TestGetStationNoResults(t *testing.T) {
+	mockHTTPClient := &mockClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"results": []}`)),
+			}, nil
+		},
+	}
+
+	location := comms.GeoCodeAPIResponseItem{
+		Name: "Nowhere",
+		Lat:  0,
+		Lon:  0,
+	}
+
+	client := comms.NewClient(mockHTTPClient)
+	_, err := client.GetStation(location, "test-token")
+	if err == nil {
+		t.Error("expected error when no stations found, got nil")
 	}
 }
 
