@@ -10,4 +10,4 @@
 - Unit tests should avoid mocks and stubs. If mocks and stubs seem needed, consider refactoring the code to be more testable instead - but ask permission before making any significant refactorings.
 - Unit tests should test one unit of code at a time, and should not have side effects that impact other tests.
 - Avoid making functions public just to test them. Instead, consider refactoring the code to allow testing without exposing internal functions.
-
+- When working with external APIs, if you can't find consistent documentation, feel free to suggest API calls that I can run via `curl` so that we can get a better understanding of the responses.
