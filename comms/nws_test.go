@@ -127,7 +127,7 @@ func TestGetNWSObservationStationAPIError(t *testing.T) {
 	}
 }
 
-func TestGetCurrentObservationSuccess(t *testing.T) {
+func TestGetCurrentObservationKmhWind(t *testing.T) {
 	mockHTTPClient := &mockClient{
 		doFunc: func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
@@ -138,7 +138,7 @@ func TestGetCurrentObservationSuccess(t *testing.T) {
 						"textDescription": "Partly Cloudy",
 						"temperature": {"value": 18.33},
 						"relativeHumidity": {"value": 72.5},
-						"windSpeed": {"value": 14.8}
+						"windSpeed": {"unitCode": "wmoUnit:km_h-1", "value": 14.8}
 					}
 				}`)),
 			}, nil
@@ -163,6 +163,35 @@ func TestGetCurrentObservationSuccess(t *testing.T) {
 	}
 	if obs.Timestamp != "2026-05-07T14:00:00+00:00" {
 		t.Errorf("unexpected timestamp: %q", obs.Timestamp)
+	}
+}
+
+func TestGetCurrentObservationMsWind(t *testing.T) {
+	mockHTTPClient := &mockClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body: io.NopCloser(strings.NewReader(`{
+					"properties": {
+						"timestamp": "2026-05-07T14:00:00+00:00",
+						"textDescription": "Clear",
+						"temperature": {"value": 20.0},
+						"relativeHumidity": {"value": 50.0},
+						"windSpeed": {"unitCode": "wmoUnit:m_s-1", "value": 4.0}
+					}
+				}`)),
+			}, nil
+		},
+	}
+
+	client := comms.NewClient(mockHTTPClient)
+	obs, err := client.GetCurrentObservation("KBOS")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	// 4.0 m/s → ~8.95 mph
+	if obs.WindSpeedMph < 8.9 || obs.WindSpeedMph > 9.0 {
+		t.Errorf("expected ~8.95 mph for 4 m/s, got %.2f", obs.WindSpeedMph)
 	}
 }
 
@@ -314,6 +343,37 @@ func TestGetNWSForecastAPIError(t *testing.T) {
 	_, err := client.GetNWSForecast("https://api.weather.gov/gridpoints/BOX/71,90/forecast")
 	if err == nil {
 		t.Error("expected error for non-200 response, got nil")
+	}
+}
+
+func TestGetNWSForecastZeroFahrenheitLow(t *testing.T) {
+	// 0°F is a valid temperature; the zero sentinel bug would have dropped it
+	mockHTTPClient := &mockClient{
+		doFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body: io.NopCloser(strings.NewReader(`{
+					"properties": {
+						"periods": [
+							{"name": "Today", "temperature": 15, "isDaytime": true, "shortForecast": "Sunny"},
+							{"name": "Tonight", "temperature": 0, "isDaytime": false, "shortForecast": "Clear"}
+						]
+					}
+				}`)),
+			}, nil
+		},
+	}
+
+	client := comms.NewClient(mockHTTPClient)
+	forecast, err := client.GetNWSForecast("https://api.weather.gov/gridpoints/BOX/71,90/forecast")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if forecast.TemperatureLowF != 0 {
+		t.Errorf("expected low exactly 0°F, got %v", forecast.TemperatureLowF)
+	}
+	if forecast.TemperatureHighF != 15 {
+		t.Errorf("expected high 15, got %v", forecast.TemperatureHighF)
 	}
 }
 
