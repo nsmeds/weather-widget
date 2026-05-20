@@ -48,13 +48,18 @@ type nwsStationsResponse struct {
 	} `json:"features"`
 }
 
+type nwsWindMeasurement struct {
+	UnitCode string   `json:"unitCode"`
+	Value    *float64 `json:"value"`
+}
+
 type nwsObservationResponse struct {
 	Properties struct {
-		Timestamp       string  `json:"timestamp"`
-		TextDescription string  `json:"textDescription"`
-		Temperature     struct{ Value *float64 `json:"value"` } `json:"temperature"`
+		Timestamp        string             `json:"timestamp"`
+		TextDescription  string             `json:"textDescription"`
+		Temperature      struct{ Value *float64 `json:"value"` } `json:"temperature"`
 		RelativeHumidity struct{ Value *float64 `json:"value"` } `json:"relativeHumidity"`
-		WindSpeed       struct{ Value *float64 `json:"value"` } `json:"windSpeed"`
+		WindSpeed        nwsWindMeasurement `json:"windSpeed"`
 	} `json:"properties"`
 }
 
@@ -131,7 +136,8 @@ func (c *CommsClient) GetNWSObservationStation(stationsURL string) (string, erro
 }
 
 // GetCurrentObservation fetches the latest observation from an NWS station.
-// Temperature is converted from Celsius to Fahrenheit; wind speed from km/h to mph.
+// Temperature is converted from Celsius to Fahrenheit. Wind speed is converted
+// to mph respecting the unitCode returned by the API (km_h-1 or m_s-1).
 func (c *CommsClient) GetCurrentObservation(stationID string) (CurrentConditions, error) {
 	var conditions CurrentConditions
 	url := fmt.Sprintf("%s/stations/%s/observations/latest", nwsAPIHost, stationID)
@@ -166,7 +172,7 @@ func (c *CommsClient) GetCurrentObservation(stationID string) (CurrentConditions
 		conditions.Humidity = *p.RelativeHumidity.Value
 	}
 	if p.WindSpeed.Value != nil {
-		conditions.WindSpeedMph = kmhToMph(*p.WindSpeed.Value)
+		conditions.WindSpeedMph = windToMph(p.WindSpeed.UnitCode, *p.WindSpeed.Value)
 	}
 	return conditions, nil
 }
@@ -200,16 +206,19 @@ func (c *CommsClient) GetNWSForecast(forecastURL string) (TodayForecast, error) 
 	if len(periods) == 0 {
 		return forecast, errors.New("no forecast periods available")
 	}
+	var highFound, lowFound bool
 	for _, p := range periods {
-		if p.IsDaytime && forecast.Name == "" {
+		if p.IsDaytime && !highFound {
 			forecast.Name = p.Name
 			forecast.ShortForecast = p.ShortForecast
 			forecast.TemperatureHighF = p.Temperature
+			highFound = true
 		}
-		if !p.IsDaytime && forecast.TemperatureLowF == 0 {
+		if !p.IsDaytime && !lowFound {
 			forecast.TemperatureLowF = p.Temperature
+			lowFound = true
 		}
-		if forecast.Name != "" && forecast.TemperatureLowF != 0 {
+		if highFound && lowFound {
 			break
 		}
 	}
@@ -222,4 +231,18 @@ func celsiusToFahrenheit(c float64) float64 {
 
 func kmhToMph(kmh float64) float64 {
 	return kmh * 0.621371
+}
+
+// windToMph converts wind speed to mph, respecting the NWS unitCode.
+// NWS observations use wmoUnit:km_h-1; wmoUnit:m_s-1 is handled defensively.
+func windToMph(unitCode string, value float64) float64 {
+	switch unitCode {
+	case "wmoUnit:km_h-1":
+		return kmhToMph(value)
+	case "wmoUnit:m_s-1":
+		return value * 2.236936
+	default:
+		fmt.Printf("windToMph: unknown unitCode %q, treating as km/h\n", unitCode)
+		return kmhToMph(value)
+	}
 }

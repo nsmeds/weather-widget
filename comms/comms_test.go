@@ -1,6 +1,7 @@
 package comms_test
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -112,16 +113,17 @@ func TestGetLocationsInvalidJSON(t *testing.T) {
 
 // TestGetStationSuccess tests GetStation with a successful CDO API response
 func TestGetStationSuccess(t *testing.T) {
+	expectedStationId := "GHCND:USW00012345"
 	mockHTTPClient := &mockClient{
 		doFunc: func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body: io.NopCloser(strings.NewReader(`{
+				Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{
 					"metadata": {"resultset": {"offset": 1, "count": 1, "limit": 1}},
 					"results": [
-						{"id": "GHCND:USW00012345", "name": "NEW ORLEANS INTL AP, LA US"}
+						{"id": %q, "name": "NEW ORLEANS INTL AP, LA US"}
 					]
-				}`)),
+				}`, expectedStationId))),
 			}, nil
 		},
 	}
@@ -137,7 +139,7 @@ func TestGetStationSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if station.Id != "GHCND:USW00012345" {
+	if station.Id != expectedStationId {
 		t.Errorf("expected station ID 'GHCND:USW00012345', got %q", station.Id)
 	}
 }
