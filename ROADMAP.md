@@ -11,10 +11,11 @@ Geographic scope: US-only for now. International expansion can be revisited if t
 
 ## Current Status
 
-The server infrastructure is in place with basic routing and external API integrations:
+The full `/weather` endpoint pipeline is wired up end-to-end: geocoding → NWS grid points → station observations → today's forecast → CDO climate normals. All external API integrations are implemented and unit-tested.
 
 - **Geocoding**: OpenWeatherMap Geocoding API for location lookup (city/state → lat/lon)
-- **Weather Stations**: NOAA CDO API for retrieving nearby GHCND weather stations
+- **Current conditions + forecast**: NWS API (api.weather.gov) — no key required
+- **Climate normals**: NOAA CDO NORMAL_DLY dataset (1981-2010 30-year averages)
 - **CLI**: Configurable host, port, and API keys via flags/environment variables
 - **Testing & Build**: Makefile with test coverage requirements (65% minimum), Docker build support
 
@@ -25,28 +26,25 @@ The server infrastructure is in place with basic routing and external API integr
 - [x] Weather station lookup (NOAA CDO/GHCND)
 - [x] Command-line argument parsing
 - [x] API key configuration
+- [x] NWS API integration (current conditions and today's forecast)
+- [x] Historical climate normals (NOAA CDO NORMAL_DLY, 1981-2010)
+- [x] Full `/weather` endpoint wired up end-to-end
 
 ## Outstanding TODOs
 
 ### High Priority
 
-1. **Complete weather data retrieval flow**
-   - Integrate NWS API (api.weather.gov) for current conditions and today's forecast
-   - Wire up full `/weather` endpoint to return current + forecast + averages
-
-2. **Historical average temperatures**
-   - Use NOAA CDO NORMAL_DLY dataset for 30-year climate normals (1981-2010)
-
-3. **Input validation & sanitization**
-   - Sanitize geocoding query input
+1. **Input validation & sanitization**
+   - Remove debug print statement in geocode.go
+   - Sanitize and validate the location query string
    - Validate API responses and error cases
 
 ### Medium Priority
 
-4. **State code handling**
-   - Convert 2-letter state abbreviations to 3-letter codes where needed for APIs
+2. **State code handling**
+   - Confirm OpenWeatherMap geocoding accepts 2-letter US state codes (likely fine; TODO may be stale)
 
-5. **Error handling**
+3. **Error handling**
    - Improve HTTP error responses with consistent JSON format
    - Add error logging throughout request pipeline
 
