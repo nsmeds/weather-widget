@@ -29,22 +29,14 @@ The full `/weather` endpoint pipeline is wired up end-to-end: geocoding → NWS 
 - [x] NWS API integration (current conditions and today's forecast)
 - [x] Historical climate normals (NOAA CDO NORMAL_DLY, 1981-2010)
 - [x] Full `/weather` endpoint wired up end-to-end
+- [x] Input validation & sanitization (query normalization, length cap, debug print removed)
+- [x] Geocoding query format fixed — OpenWeatherMap requires `,US` country suffix with 2-letter state codes; queries without it return empty results
 
 ## Outstanding TODOs
 
-### High Priority
-
-1. **Input validation & sanitization**
-   - Remove debug print statement in geocode.go
-   - Sanitize and validate the location query string
-   - Validate API responses and error cases
-
 ### Medium Priority
 
-2. **State code handling**
-   - Confirm OpenWeatherMap geocoding accepts 2-letter US state codes (likely fine; TODO may be stale)
-
-3. **Error handling**
+1. **Error handling**
    - Improve HTTP error responses with consistent JSON format
    - Add error logging throughout request pipeline
 
@@ -90,6 +82,7 @@ The full `/weather` endpoint pipeline is wired up end-to-end: geocoding → NWS 
 
 - **Weather Data Source**: NWS API (api.weather.gov) — free, no key required, US-only
 - **Historical Data Source**: NOAA CDO NORMAL_DLY dataset — 30-year (1981-2010) climate normals via existing NCDC key
+- **Geocoding Query Format**: OpenWeatherMap direct geocoding requires `city,state,US` format — the `,US` country suffix is mandatory; omitting it returns an empty result for US state abbreviations. 2-letter ISO state codes are correct (not 3-letter FIPS codes).
 - **Location Disambiguation**: When geocoding returns multiple results, return all options for the caller to select
 - **Geographic Scope**: US-only for now; may expand to international sources in the future
 - **Deployment**: Container-first (Dockerfile exists), serverless, traditional VPS?
