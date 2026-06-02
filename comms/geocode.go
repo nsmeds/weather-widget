@@ -2,6 +2,7 @@ package comms
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 // https://openweathermap.org/api/geocoding-api
 
 const geoCodingHost = "https://api.openweathermap.org/geo/1.0/direct"
+const isUnitedStatesOnly = true
 
 // GeoCodeAPIResponseItem represents a single geocoding API response
 type GeoCodeAPIResponseItem struct {
@@ -61,19 +63,37 @@ func NewClientWithDefaults() *CommsClient {
 	}
 }
 
+// normalizeGeoQuery converts a free-form "City, State" or "City State" query
+// into the comma-separated form OpenWeatherMap requires, appending ",US" so
+// that 2-letter state abbreviations are resolved correctly. Without the country
+// code the API returns an empty result for US state abbreviations.
+func normalizeGeoQuery(query string) (string, error) {
+	// Split on commas and/or spaces so "Boston, MA", "Boston MA", and "Boston,MA"
+	// all produce the same token list.
+	const USCountryPrefix = "US"
+	fields := strings.FieldsFunc(strings.TrimSpace(query), func(r rune) bool {
+		return r == ',' || r == ' '
+	})
+	if isUnitedStatesOnly {
+		return strings.Join(fields, ",") + "," + USCountryPrefix, nil
+	}
+	return "", errors.New("no country code configured; geographic scope must be set before querying")
+}
+
 // GetLocations retrieves locations for the given query
 func (c *CommsClient) GetLocations(query string, apiKey string) ([]GeoCodeAPIResponseItem, error) {
 	var l geoCodeAPIResponse
-	// TODO possibly convert two-letter state code to three-letter, because API only handles the latter
-	// handle spaces - API needs comma delimiter
-	spaceToComma := strings.Join(strings.Split(query, " "), ",")
 	req, err := http.NewRequest(http.MethodGet, geoCodingHost, nil)
+	if err != nil {
+		return l, err
+	}
+	normalized, err := normalizeGeoQuery(query)
 	if err != nil {
 		return l, err
 	}
 	q := url.Values{}
 	q.Add("appid", apiKey)
-	q.Add("q", spaceToComma)
+	q.Add("q", normalized)
 	req.URL.RawQuery = q.Encode()
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -90,6 +110,5 @@ func (c *CommsClient) GetLocations(query string, apiKey string) ([]GeoCodeAPIRes
 	if err = json.Unmarshal(body, &l); err != nil {
 		return l, err
 	}
-	fmt.Printf("\nunmarshaled: %v\n", l)
 	return l, nil
 }

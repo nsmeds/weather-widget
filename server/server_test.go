@@ -116,6 +116,11 @@ func TestHandleWeatherRequest(t *testing.T) {
 			body:           "",
 			expectedStatus: http.StatusBadRequest,
 		},
+		{
+			name:           "weather request with query over 200 chars",
+			body:           string(make([]byte, 201)),
+			expectedStatus: http.StatusBadRequest,
+		},
 	}
 
 	for _, tt := range tests {
