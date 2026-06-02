@@ -77,6 +77,10 @@ func (s *Server) handleWeatherRequest() http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "location query required"})
 			return
 		}
+		if len(query) > 200 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "location query too long"})
+			return
+		}
 
 		locations, err := s.commsClient.GetLocations(query, s.geoCodeApiKey)
 		if err != nil {

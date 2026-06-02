@@ -194,3 +194,38 @@ func TestGetStationAPIError(t *testing.T) {
 		t.Errorf("expected empty station ID on error, got %q", station.Id)
 	}
 }
+
+// TestGetLocationsQueryNormalization verifies that various input formats all
+// produce a comma-separated query with the ",US" country suffix that
+// OpenWeatherMap requires for US state abbreviations to resolve correctly.
+func TestGetLocationsQueryNormalization(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantQ   string
+	}{
+		{"Boston MA", "Boston,MA,US"},
+		{"Boston, MA", "Boston,MA,US"},
+		{"Boston,MA", "Boston,MA,US"},
+		{"  Boston   MA  ", "Boston,MA,US"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			var capturedQ string
+			mockHTTPClient := &mockClient{
+				doFunc: func(req *http.Request) (*http.Response, error) {
+					capturedQ = req.URL.Query().Get("q")
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`[]`)),
+					}, nil
+				},
+			}
+			client := comms.NewClient(mockHTTPClient)
+			_, _ = client.GetLocations(tt.input, "test-key")
+			if capturedQ != tt.wantQ {
+				t.Errorf("q param: got %q, want %q", capturedQ, tt.wantQ)
+			}
+		})
+	}
+}
